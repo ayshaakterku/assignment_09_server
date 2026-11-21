@@ -1,0 +1,62 @@
+{
+  "personalInformation": {
+    "fullName": "string",
+    "profileImage": "string",
+    "gender": "string",
+    "phoneNumber": "string",
+    "email": "string",
+    "presentAddress": "string",
+    "city": "string"
+  },
+  "academicInformation": {
+    "institution": "string",
+    "subject": "string"
+  },
+
+  "tutoringInformation": {
+    "tutorType": "Home Tutor",
+    "teachingExperience": "string",
+    "preferredClasses": [
+      "Class 6",
+      "Class 7",
+      "Class 8"
+    ],
+    "preferredSubjects": [
+      "Mathematics",
+      "Physics",
+      "Chemistry"
+    ],
+    "preferredCurriculum": [
+      "English Version",
+      "Bangla Medium"
+    ],
+    "preferredLocations": [
+      "Dhanmondi",
+      "Mohammadpur"
+    ],
+    "preferredTutoringMethod": [
+      "Home Tutoring",
+      "Online Tutoring"
+    ],
+    "preferredGenderOfStudent": "Any",
+    "availableDays": [
+      "Sunday",
+      "Monday",
+      "Wednesday"
+    ],
+    "availableTime": "Evening",
+    "expectedSalary": 8000,
+    "salaryNegotiable": true
+  },
+
+  "verificationInformation": {
+    "isVerified": false
+  },
+  "platformInformation": {
+    "profileStatus": "Active",
+    "registrationDate": "2026-01-01",
+    "profileViews": 0,
+    "rating": 0,
+    "totalReviews": 0
+  }
+}

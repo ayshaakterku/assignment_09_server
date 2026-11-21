@@ -1,3 +1,6 @@
 .env
 
 /node_modules
+
+type.ts
+type2.ts
