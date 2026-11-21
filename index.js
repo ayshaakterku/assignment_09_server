@@ -133,6 +133,24 @@ app.get("/applications", async(req, res)=>{
   res.send(result)
 })
 
+// accepted/rejected/pending of student request by tutor
+// tutor accepts or rejects a student's application
+app.patch("/applications/:id/status", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!["accepted", "rejected"].includes(status) || !ObjectId.isValid(id)) {
+    return res.status(400).send({ message: "Invalid request" });
+  }
+  const result = await applications.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status } }
+  );
+  if (!result.matchedCount) {
+    return res.status(404).send({ message: "Application not found" });
+  }
+  res.send({ success: true, status });
+});
+
 app.get("/", (req, res) => {
   res.send("Server is working!");
 });
@@ -140,3 +158,4 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is working on PORT ${PORT}`);
 });
+
