@@ -209,7 +209,49 @@ const nextTutionId = async () => {
   return `MU${String(lastNumber + 1).padStart(5, "0")}`;
 };
 
+// new post by tutor
+app.post("/tutions", async (req, res) => {
+  try {
+    const body = req.body ?? {};
 
+    if (!body.title || !body.subject || !body.tutorEmail) {
+      return res
+        .status(400)
+        .send({ message: "title, subject and tutorEmail are required" });
+    }
+
+    const doc = {
+      // Keep the same MU00001-style ids the existing records use.
+      tutionId: body.tutionId || (await nextTutionId()),
+      title: String(body.title).trim(),
+      subject: String(body.subject).trim(),
+      classLevel: body.classLevel ?? "",
+      mode: body.mode === "Offline" ? "Offline" : "Online",
+      location: body.location ?? "",
+      monthlyFee: Number(body.monthlyFee) || 0,
+      daysPerWeek: Number(body.daysPerWeek) || 0,
+      bannerImage: body.bannerImage ?? "",
+      description: body.description ?? "",
+      tutorName: body.tutorName ?? "",
+      tutorEmail: body.tutorEmail,
+      // A new listing always waits for admin review and starts active.
+      approvalStatus: "pending",
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    const result = await tutions.insertOne(doc);
+
+    res.status(201).send({
+      success: true,
+      insertedId: result.insertedId,
+      inserted: { ...doc, _id: result.insertedId },
+    });
+  } catch (error) {
+    console.error("Failed to create tuition:", error);
+    res.status(500).send({ message: "Failed to create tuition" });
+  }
+});
 
 
 
