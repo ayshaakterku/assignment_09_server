@@ -123,6 +123,16 @@ app.patch("/tutions/:id/isActive", async (req, res) => {
   }
 });
 
+// access to tution application by query
+app.get("/applications", async(req, res)=>{
+  const query = {}
+  if (req.query.tutorEmail){
+    query.tutorEmail= req.query.tutorEmail
+  }
+  const result = await applications.find(query).toArray();
+  res.send(result)
+})
+
 app.get("/", (req, res) => {
   res.send("Server is working!");
 });
