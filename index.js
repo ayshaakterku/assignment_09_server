@@ -151,6 +151,36 @@ app.patch("/applications/:id/status", async (req, res) => {
   res.send({ success: true, status });
 });
 
+// update tution data by tutor
+app.patch("/tutions/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ message: "Invalid tuition id" });
+  }
+  const allowed = [
+    "title", "subject", "classLevel", "mode", "location",
+    "monthlyFee", "daysPerWeek", "bannerImage", "description",
+  ];
+  const updates = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  if (!Object.keys(updates).length) {
+    return res.status(400).send({ message: "No valid fields to update" });
+  }
+
+  const result = await tutions.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updates }
+  );
+
+  if (!result.matchedCount) {
+    return res.status(404).send({ message: "Tuition not found" });
+  }
+  res.send({ success: true, updates });
+});
+
 app.get("/", (req, res) => {
   res.send("Server is working!");
 });
@@ -158,4 +188,6 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is working on PORT ${PORT}`);
 });
+
+
 
