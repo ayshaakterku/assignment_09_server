@@ -181,6 +181,21 @@ app.patch("/tutions/:id", async (req, res) => {
   res.send({ success: true, updates });
 });
 
+// Tution data delete by tutor
+app.delete("/tutions/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ message: "Invalid tuition id" });
+  }
+  const result = await tutions.deleteOne({ _id: new ObjectId(id) });
+
+  if (!result.deletedCount) {
+    return res.status(404).send({ message: "Tuition not found" });
+  }
+  res.send({ success: true });
+});
+
+
 app.get("/", (req, res) => {
   res.send("Server is working!");
 });
