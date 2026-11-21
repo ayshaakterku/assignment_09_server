@@ -196,6 +196,24 @@ app.delete("/tutions/:id", async (req, res) => {
 });
 
 
+// create a new tuition listing (tutorId)
+const nextTutionId = async () => {
+  const [last] = await tutions
+    .find({ tutionId: { $regex: /^MU\d+$/ } })
+    .sort({ tutionId: -1 })
+    .limit(1)
+    .toArray();
+
+  const lastNumber = last ? Number(last.tutionId.replace(/^MU/, "")) : 0;
+
+  return `MU${String(lastNumber + 1).padStart(5, "0")}`;
+};
+
+
+
+
+
+
 app.get("/", (req, res) => {
   res.send("Server is working!");
 });
