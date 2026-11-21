@@ -93,7 +93,35 @@ app.patch("/tutions/:id/approvalStatus", async (req, res) => {
   }
 });
 
+// active /closed by tutor
+app.patch("/tutions/:id/isActive", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
 
+    if (typeof isActive !== "boolean") {
+      return res.status(400).send({ message: "Invalid isActive" });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid tuition id" });
+    }
+
+    const result = await tutions.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isActive } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ message: "Tuition not found" });
+    }
+
+    res.send({ success: true, isActive });
+  } catch (error) {
+    console.error("Failed to update isActive status:", error);
+    res.status(500).send({ message: "Failed to update active status" });
+  }
+});
 
 app.get("/", (req, res) => {
   res.send("Server is working!");
