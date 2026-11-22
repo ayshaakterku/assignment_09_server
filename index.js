@@ -36,6 +36,12 @@ app.get("/users", async (req, res) => {
   res.send(result);
 });
 
+app.get('/users/:id/premium', async(req, res)=>{
+  const id = req.params.id;
+  const query = {_id: new ObjectId(id)};
+  const result = await users.findOne(query, {projection: {premium: 1}})
+})
+
 //payment related
 app.post("/payments/checkout-verify", async (req, res) => {
   const { sessionId } = req.body;
@@ -72,7 +78,9 @@ app.post("/payments/checkout-verify", async (req, res) => {
       payment_status,
       payment_date: new Date(),
     };
+    // data saved into payment collection
     const result = await payments.insertOne(payment);
+    
     // update the user table
     const query = { _id: new ObjectId(metadata.userId) };
     const updatedDoc = {
