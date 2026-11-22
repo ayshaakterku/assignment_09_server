@@ -48,7 +48,75 @@ app.get("/tutions", async(req, res)=>{
   const result = await tutions.find(query).toArray();
   res.send(result)
 })
+// access to tution by query
+// app.get("/browse-tutions", async(req, res)=>{
+//   const result = await tutions.find().toArray();
+//   res.send(result)
+// })
 
+// public browse feed: only approved + active listings, with filters and facets
+app.get("/browse-tutions", async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 6, 1), 24);
+
+    // Legacy rows use "accepted" instead of "approved".
+    const baseFilter = {
+      isActive: true,
+      approvalStatus: { $in: ["approved", "accepted"] },
+    };
+
+    const filter = { ...baseFilter };
+    if (req.query.subject) filter.subject = String(req.query.subject);
+    if (req.query.classLevel) filter.classLevel = String(req.query.classLevel);
+
+    const [data, total, subjects, classLevels] = await Promise.all([
+      tutions
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+      tutions.countDocuments(filter),
+      tutions.distinct("subject", baseFilter),
+      tutions.distinct("classLevel", baseFilter),
+    ]);
+
+    res.send({
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      subjects: subjects.filter(Boolean).sort(),
+      classLevels: classLevels.filter(Boolean).sort(),
+    });
+  } catch (error) {
+    console.error("Failed to load browse tuitions:", error);
+    res.status(500).send({ message: "Failed to load tuitions" });
+  }
+});
+
+// single tuition by Mongo id or human readable tutionId
+app.get("/tutions/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = ObjectId.isValid(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { tutionId: id }] }
+      : { tutionId: id };
+
+    const tuition = await tutions.findOne(query);
+
+    if (!tuition) {
+      return res.status(404).send({ message: "Tuition not found" });
+    }
+
+    res.send(tuition);
+  } catch (error) {
+    console.error("Failed to load tuition:", error);
+    res.status(500).send({ message: "Failed to load tuition" });
+  }
+});
 
 // approval status updated by admin
 // app.patch('/tutions/:id/approvalStatus', async(req, res)=>{
@@ -128,6 +196,9 @@ app.get("/applications", async(req, res)=>{
   const query = {}
   if (req.query.tutorEmail){
     query.tutorEmail= req.query.tutorEmail
+  }
+  if (req.query.studentEmail){
+    query.studentEmail= req.query.studentEmail
   }
   const result = await applications.find(query).toArray();
   res.send(result)
