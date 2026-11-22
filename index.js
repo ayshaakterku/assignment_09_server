@@ -39,7 +39,8 @@ app.get("/users", async (req, res) => {
 app.get('/users/:id/premium', async(req, res)=>{
   const id = req.params.id;
   const query = {_id: new ObjectId(id)};
-  const result = await users.findOne(query, {projection: {premium: 1}})
+  const result = await users.findOne(query, {projection: {premium: 1}});
+  res.send(result)
 })
 
 //payment related
@@ -52,6 +53,7 @@ app.post("/payments/checkout-verify", async (req, res) => {
     payment_intent,
     payment_status,
     customer_details,
+    amount_total,
   } = await stripe.checkout.sessions.retrieve(sessionId);
   // is it new session
   // check is the seesion id for current;ly logged in user
@@ -77,6 +79,7 @@ app.post("/payments/checkout-verify", async (req, res) => {
       payment_intent,
       payment_status,
       payment_date: new Date(),
+      amount_total,
     };
     // data saved into payment collection
     const result = await payments.insertOne(payment);
