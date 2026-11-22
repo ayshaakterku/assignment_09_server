@@ -512,11 +512,12 @@ app.get("/applications/count", async (req, res) => {
   const result = await applications.countDocuments(query);
   res.send({ count: result });
 });
-// application count of tutor
+
+// tutor post count of tutor
 app.get("/tution/count", async (req, res) => {
   const query = {};
-  if (req.query.studentEmail) {
-    query.studentEmail = req.query.studentEmail;
+  if (req.query.tutorEmail) {
+    query.tutorEmail = req.query.tutorEmail;
   }
   const result = await tutions.countDocuments(query);
   res.send({ count: result });
@@ -529,3 +530,5 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is working on PORT ${PORT}`);
 });
+
+export default app
