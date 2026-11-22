@@ -2,12 +2,14 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
+import Stripe from "stripe";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 const PORT = 8000;
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const client = new MongoClient(process.env.MONGODB_URI);
 export async function connectToMongoDB() {
   try {
@@ -21,33 +23,86 @@ export async function connectToMongoDB() {
 // db and collections
 const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("mentor-lagbe");
-const users = db.collection("user")
+const users = db.collection("user");
 const tutions = db.collection("tution");
 const applications = db.collection("application");
-const payments = db.collection("payment")
+const payments = db.collection("payment");
+const savedTution = db.collection("saved");
 
 // get user data
-app.get("/users", async(req, res)=>{
-  const query = {}
+app.get("/users", async (req, res) => {
+  const query = {};
   const result = await users.find(query).toArray();
-  res.send(result)
-})
+  res.send(result);
+});
+
+//payment related
+app.post("/payments/checkout-verify", async (req, res) => {
+  const { sessionId } = req.body;
+  const {
+    status,
+    customer_email,
+    metadata,
+    payment_intent,
+    payment_status,
+    customer_details,
+  } = await stripe.checkout.sessions.retrieve(sessionId);
+  // is it new session
+  // check is the seesion id for current;ly logged in user
+  // insert sessionId into the payment collection
+  // update user information
+  if (!sessionId){
+    return res.send({success: false, message: 'Session Id is required'})
+  }
+  if (status === "complete" && payment_status === "paid") {
+
+    // protect from second time payment by refreshing page
+    const sessionQuery = {sessionId};
+    const exsistingPayment = await payments.findOne(sessionQuery);
+    if(exsistingPayment){
+      return res.send({success: false, message: "Payment already verified"})
+    }
+
+    const payment = {
+      sessionId,
+      status,
+      customer_email,
+      userId: metadata.userId,
+      payment_intent,
+      payment_status,
+      payment_date: new Date(),
+    };
+    const result = await payments.insertOne(payment);
+    // update the user table
+    const query = { _id: new ObjectId(metadata.userId) };
+    const updatedDoc = {
+      $set: {
+        premium: true,
+      },
+    };
+    const updatedResult = await users.updateOne(query, updatedDoc);
+    res.send({ success: true, result, updatedResult });
+    return;
+  }
+
+  res.send(result);
+});
 
 // access to tution by query
-app.get("/tutions", async(req, res)=>{
-  const query = {}
-  if (req.query.tutorEmail){
-    query.tutorEmail= req.query.tutorEmail
+app.get("/tutions", async (req, res) => {
+  const query = {};
+  if (req.query.tutorEmail) {
+    query.tutorEmail = req.query.tutorEmail;
   }
-  if (req.query.approvalStatus){
-    query.approvalStatus= req.query.approvalStatus
+  if (req.query.approvalStatus) {
+    query.approvalStatus = req.query.approvalStatus;
   }
-  if (req.query.isActive){
-    query.isActive= req.query.isActive
+  if (req.query.isActive) {
+    query.isActive = req.query.isActive;
   }
   const result = await tutions.find(query).toArray();
-  res.send(result)
-})
+  res.send(result);
+});
 // access to tution by query
 // app.get("/browse-tutions", async(req, res)=>{
 //   const result = await tutions.find().toArray();
@@ -147,7 +202,7 @@ app.patch("/tutions/:id/approvalStatus", async (req, res) => {
 
     const result = await tutions.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { approvalStatus, isActive: approvalStatus === "approved" } }
+      { $set: { approvalStatus, isActive: approvalStatus === "approved" } },
     );
 
     if (result.matchedCount === 0) {
@@ -177,7 +232,7 @@ app.patch("/tutions/:id/isActive", async (req, res) => {
 
     const result = await tutions.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { isActive } }
+      { $set: { isActive } },
     );
 
     if (result.matchedCount === 0) {
@@ -192,17 +247,17 @@ app.patch("/tutions/:id/isActive", async (req, res) => {
 });
 
 // access to tution application by query
-app.get("/applications", async(req, res)=>{
-  const query = {}
-  if (req.query.tutorEmail){
-    query.tutorEmail= req.query.tutorEmail
+app.get("/applications", async (req, res) => {
+  const query = {};
+  if (req.query.tutorEmail) {
+    query.tutorEmail = req.query.tutorEmail;
   }
-  if (req.query.studentEmail){
-    query.studentEmail= req.query.studentEmail
+  if (req.query.studentEmail) {
+    query.studentEmail = req.query.studentEmail;
   }
   const result = await applications.find(query).toArray();
-  res.send(result)
-})
+  res.send(result);
+});
 
 // Tution request post to application
 app.post("/applications", async (req, res) => {
@@ -271,6 +326,46 @@ app.post("/applications", async (req, res) => {
   }
 });
 
+// application will be saved into savedTution
+app.post("/saved", async (req, res) => {
+  const data = req.body;
+  const result = await savedTution.insertOne(data);
+  res.send(result);
+});
+// get data from savedTution by email
+app.get("/saved", async (req, res) => {
+  const query = {};
+  if (req.query.studentEmail) {
+    query.studentEmail = req.query.studentEmail;
+  }
+  const result = await savedTution.find(query).toArray();
+  res.send(result);
+});
+// delete data from savedTution by email
+app.delete("/saved/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid saved tuition id" });
+    }
+
+    const result = await savedTution.deleteOne({
+      _id: new ObjectId(id),
+      studentEmail: req.query.studentEmail,
+    });
+
+    if (!result.deletedCount) {
+      return res.status(404).send({ message: "Saved tuition not found" });
+    }
+
+    res.send({ success: true });
+  } catch (error) {
+    console.error("Failed to delete saved tuition:", error);
+    res.status(500).send({ message: "Failed to delete saved tuition" });
+  }
+});
+
 // accepted/rejected/pending of student request by tutor
 // tutor accepts or rejects a student's application
 app.patch("/applications/:id/status", async (req, res) => {
@@ -281,7 +376,7 @@ app.patch("/applications/:id/status", async (req, res) => {
   }
   const result = await applications.updateOne(
     { _id: new ObjectId(id) },
-    { $set: { status } }
+    { $set: { status } },
   );
   if (!result.matchedCount) {
     return res.status(404).send({ message: "Application not found" });
@@ -296,8 +391,15 @@ app.patch("/tutions/:id", async (req, res) => {
     return res.status(400).send({ message: "Invalid tuition id" });
   }
   const allowed = [
-    "title", "subject", "classLevel", "mode", "location",
-    "monthlyFee", "daysPerWeek", "bannerImage", "description",
+    "title",
+    "subject",
+    "classLevel",
+    "mode",
+    "location",
+    "monthlyFee",
+    "daysPerWeek",
+    "bannerImage",
+    "description",
   ];
   const updates = {};
   for (const key of allowed) {
@@ -310,7 +412,7 @@ app.patch("/tutions/:id", async (req, res) => {
 
   const result = await tutions.updateOne(
     { _id: new ObjectId(id) },
-    { $set: updates }
+    { $set: updates },
   );
 
   if (!result.matchedCount) {
@@ -332,7 +434,6 @@ app.delete("/tutions/:id", async (req, res) => {
   }
   res.send({ success: true });
 });
-
 
 // create a new tuition listing (tutorId)
 const nextTutionId = async () => {
@@ -391,8 +492,24 @@ app.post("/tutions", async (req, res) => {
   }
 });
 
-
-
+// application count of student
+app.get("/applications/count", async (req, res) => {
+  const query = {};
+  if (req.query.studentEmail) {
+    query.studentEmail = req.query.studentEmail;
+  }
+  const result = await applications.countDocuments(query);
+  res.send({ count: result });
+});
+// application count of tutor
+app.get("/tution/count", async (req, res) => {
+  const query = {};
+  if (req.query.studentEmail) {
+    query.studentEmail = req.query.studentEmail;
+  }
+  const result = await tutions.countDocuments(query);
+  res.send({ count: result });
+});
 
 app.get("/", (req, res) => {
   res.send("Server is working!");
@@ -401,6 +518,3 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is working on PORT ${PORT}`);
 });
-
-
-
