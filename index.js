@@ -204,6 +204,73 @@ app.get("/applications", async(req, res)=>{
   res.send(result)
 })
 
+// Tution request post to application
+app.post("/applications", async (req, res) => {
+  try {
+    const body = req.body ?? {};
+
+    const required = [
+      "tuitionId",
+      "tuitionTitle",
+      "tutorEmail",
+      "studentName",
+      "studentEmail",
+      "studentPhone",
+      "preferredSchedule",
+    ];
+    const missing = required.filter((key) => !String(body[key] ?? "").trim());
+
+    if (missing.length) {
+      return res
+        .status(400)
+        .send({ message: `Missing required fields: ${missing.join(", ")}` });
+    }
+
+    // Block duplicate active requests for the same tuition.
+    const existing = await applications.findOne({
+      studentEmail: String(body.studentEmail),
+      status: { $in: ["pending", "accepted"] },
+      $or: [
+        { tuitionId: String(body.tuitionId) },
+        { tutionId: String(body.tuitionId) },
+      ],
+    });
+
+    if (existing) {
+      return res
+        .status(409)
+        .send({ message: "You have already applied for this tuition." });
+    }
+
+    const doc = {
+      tuitionId: String(body.tuitionId),
+      tuitionTitle: String(body.tuitionTitle),
+      subject: body.subject ?? "",
+      monthlyFee: Number(body.monthlyFee) || 0,
+      tutorEmail: String(body.tutorEmail),
+      studentName: String(body.studentName),
+      studentEmail: String(body.studentEmail),
+      studentPhone: String(body.studentPhone),
+      preferredSchedule: String(body.preferredSchedule),
+      studentNote: body.studentNote ?? "",
+      // A student request always starts as pending.
+      status: "pending",
+      appliedAt: new Date().toISOString(),
+    };
+
+    const result = await applications.insertOne(doc);
+
+    res.status(201).send({
+      success: true,
+      insertedId: result.insertedId,
+      inserted: { ...doc, _id: result.insertedId },
+    });
+  } catch (error) {
+    console.error("Failed to create application:", error);
+    res.status(500).send({ message: "Failed to send the request" });
+  }
+});
+
 // accepted/rejected/pending of student request by tutor
 // tutor accepts or rejects a student's application
 app.patch("/applications/:id/status", async (req, res) => {
