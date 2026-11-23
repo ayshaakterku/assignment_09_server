@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import Stripe from "stripe";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
 app.use(cors());
@@ -20,6 +21,41 @@ export async function connectToMongoDB() {
     console.dir(err);
   }
 }
+
+// Token verification middleware
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  // Check Authorization header
+  if (!authHeader || !authHeader.startsWith("Bearer")) {
+    return res.status(401).send({
+      success: false,
+      msg: "Unauthorized! Token is missing.",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+  const JWKS = createRemoteJWKSet(
+    new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+  );
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+
+    // Store verified user information
+    req.user = payload;
+
+    next();
+  } catch (error) {
+    console.error("Token verification failed:", error.message);
+
+    return res.status(401).send({
+      success: false,
+      msg: "Invalid or expired token!",
+    });
+  }
+};
+
 // db and collections
 const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("mentor-lagbe");
@@ -129,7 +165,7 @@ app.get("/tutions", async (req, res) => {
 // })
 
 // public browse feed: only approved + active listings, with filters and facets
-app.get("/browse-tutions", async (req, res) => {
+app.get("/browse-tutions",  async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 6, 1), 24);
