@@ -43,9 +43,16 @@ app.get('/users/:id/premium', async(req, res)=>{
   res.send(result)
 })
 
+// get payment information
+app.get('/payment', async(req, res)=>{
+  const query = {};
+  const result = await payments.find(query).toArray();
+  res.send(result)
+})
 //payment related
 app.post("/payments/checkout-verify", async (req, res) => {
   const { sessionId } = req.body;
+ 
   const {
     status,
     customer_email,
@@ -76,6 +83,7 @@ app.post("/payments/checkout-verify", async (req, res) => {
       status,
       customer_email,
       userId: metadata.userId,
+      userRole: metadata.userRole,
       payment_intent,
       payment_status,
       payment_date: new Date(),
